@@ -2,7 +2,7 @@
 
 Este é um portal interativo para visualização e análise de gastos parlamentares, desenvolvido como um projeto de portfólio profissional. O sistema consome dados da API oficial da Câmara dos Deputados, armazena em um banco de dados Supabase e apresenta insights através de dashboards modernos e responsivos.
 
-## 🚀 Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 ### Frontend
 - **React 18** (com TypeScript)
@@ -17,7 +17,7 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 - **Supabase** (PostgreSQL Database, Auth, Realtime)
 - **Prisma** (Opcional - Estrutura preparada para ORM futuro)
 
-## 📊 Funcionalidades
+## Funcionalidades
 
 - **Dashboard Principal:** Visão geral dos gastos por categoria, partido e estado.
 - **Filtros Avançados:** Segmentação por Ano, Mês, Partido (Sigla), Estado (UF) e Faixa de Valor.
@@ -31,7 +31,7 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 - **Design Responsivo:** Layout adaptável para desktop e dispositivos móveis.
 - **Modo Escuro/Claro:** (Preparado na estrutura base).
 
-## 🛠️ Configuração do Projeto
+## Configuração do Projeto
 
 1. **Instalação de dependências:**
    ```bash
@@ -54,7 +54,7 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 4. **Sincronizar Dados:**
    Acesse a interface e clique no botão de sincronização ou chame a rota `/api/sync`.
 
-## 📂 Estrutura de Pastas
+## Estrutura de Pastas
 
 - `/src`: Código fonte do Frontend React.
 - `/api`: Código do Backend (Express) e rotas de API.
