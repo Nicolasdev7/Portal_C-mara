@@ -5,6 +5,7 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 ## Tecnologias Utilizadas
 
 ### Frontend
+
 - **React 18** (com TypeScript)
 - **Vite** (Build tool rápida)
 - **Tailwind CSS** (Estilização utilitária e responsiva)
@@ -13,6 +14,7 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 - **Axios** (Cliente HTTP)
 
 ### Backend & Dados
+
 - **Node.js + Express** (API Proxy e lógica de sincronização)
 - **Supabase** (PostgreSQL Database, Auth, Realtime)
 - **Prisma** (Opcional - Estrutura preparada para ORM futuro)
@@ -34,23 +36,23 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 ## Configuração do Projeto
 
 1. **Instalação de dependências:**
+
    ```bash
    npm install
    ```
-
 2. **Configuração de Variáveis de Ambiente:**
    Crie um arquivo `.env` na raiz com as chaves do Supabase:
+
    ```env
    VITE_SUPABASE_URL=sua_url_supabase
    VITE_SUPABASE_ANON_KEY=sua_chave_anonima
    SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role
    ```
-
 3. **Executar o Servidor de Desenvolvimento:**
+
    ```bash
    npm run dev
    ```
-
 4. **Sincronizar Dados:**
    Acesse a interface e clique no botão de sincronização ou chame a rota `/api/sync`.
 
@@ -61,4 +63,5 @@ Este é um portal interativo para visualização e análise de gastos parlamenta
 - `/supabase_*.sql`: Scripts de migração e configuração do banco de dados.
 
 ---
+
 Desenvolvido por Nicolas Lima Freitas.

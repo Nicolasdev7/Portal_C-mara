@@ -1,20 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell
+  AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
-import { ArrowUpRight, TrendingUp, Users, Calendar, AlertCircle, Building, Wallet, Filter, BarChart3 } from 'lucide-react';
+import { ArrowUpRight, TrendingUp, Calendar, AlertCircle, Building, Wallet } from 'lucide-react';
+import { apiJson } from '../lib/api';
+import { useSyncStatus } from '../hooks/useSyncStatus';
 
 const COLORS = ['#111827', '#374151', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db'];
 
 // Helper to truncate text
 const truncate = (str: string, n: number) => (str && str.length > n) ? str.substr(0, n - 1) + '...' : str;
 
+type TopItem = { name: string; value: number };
+type DailyItem = { date: string; value: number };
+type DashboardData = {
+  total: number;
+  count: number;
+  topCategories: TopItem[];
+  topSuppliers: TopItem[];
+  topParties: TopItem[];
+  dailyEvolution: DailyItem[];
+};
+
 export default function Home() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { status: syncStatus, label: syncLabel } = useSyncStatus(15000);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   
   // Filters State
   const now = new Date();
@@ -22,7 +37,6 @@ export default function Home() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [party, setParty] = useState('');
   const [state, setState] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
 
   // Generate Year Options (last 5 years)
   const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
@@ -41,44 +55,43 @@ export default function Home() {
     { value: 12, label: 'Dezembro' }
   ];
 
-  const fetchDashboardData = () => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
+    setError('');
     const params = new URLSearchParams();
     params.append('ano', year.toString());
     params.append('mes', month.toString());
     if (party) params.append('partido', party);
     if (state) params.append('estado', state);
 
-    fetch(`/api/gastos/resumo?${params.toString()}`)
-      .then(res => res.json())
-      .then(d => {
-        if (d.error) throw new Error(d.error);
-        setData(d);
-        setLoading(false);
-      })
-      .catch(e => {
-        setError(e.message);
-        setLoading(false);
-      });
-  };
+    try {
+      const d = await apiJson<DashboardData>(`/api/gastos/resumo?${params.toString()}`, { timeoutMs: 20000 });
+      setData(d);
+    } catch (e: unknown) {
+      const message =
+        e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string'
+          ? String((e as { message?: unknown }).message)
+          : 'Erro ao carregar dados';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [month, party, state, year]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [year, month, party, state]);
+    fetchDashboardData().catch(() => {});
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (syncStatus?.status !== 'completed') return;
+    if (!syncStatus.finished_at) return;
+    if (syncStatus.finished_at === lastSyncAt) return;
+    setLastSyncAt(syncStatus.finished_at);
+    fetchDashboardData().catch(() => {});
+  }, [fetchDashboardData, lastSyncAt, syncStatus?.finished_at, syncStatus?.status]);
 
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-
-  const syncData = () => {
-    fetch('/api/gastos/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ano: year, mes: month })
-    })
-    .then(res => res.json())
-    .then(() => alert(`Sincronização de ${month}/${year} iniciada. Os dados aparecerão em breve.`))
-    .catch(console.error);
-  };
 
   if (loading) return (
     <div className="flex justify-center items-center h-64 text-gray-500">
@@ -116,21 +129,13 @@ export default function Home() {
           </p>
         </div>
         <div className="flex space-x-3 items-center">
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
-            className={`p-2 rounded border ${showFilters ? 'bg-gray-100 border-gray-400' : 'bg-white border-gray-300'} hover:bg-gray-50 transition-colors`}
-            title="Filtrar Dashboard"
+          <div
+            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md flex items-center shadow-sm"
+            title="Status de sincronização"
           >
-            <Filter className="w-5 h-5 text-gray-700" />
-          </button>
-          
-          <button 
-            onClick={syncData}
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center shadow-sm"
-          >
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-            Sincronizar ({month}/{year})
-          </button>
+            <span className={`w-2 h-2 rounded-full mr-2 ${syncStatus?.status === 'running' ? 'bg-gray-500 animate-pulse' : 'bg-gray-300'}`}></span>
+            {syncLabel}
+          </div>
           
           <Link 
             to={`/explorar?ano=${year}&mes=${month}&partido=${party}&estado=${state}`}
@@ -143,55 +148,53 @@ export default function Home() {
       </div>
 
       {/* Dashboard Filters */}
-      {showFilters && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Ano</label>
-            <select 
-              value={year} 
-              onChange={e => setYear(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
-            >
-              {years.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Mês</label>
-            <select 
-              value={month} 
-              onChange={e => setMonth(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
-            >
-              {months.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Partido</label>
-            <input 
-              type="text" 
-              placeholder="Ex: PL, PT"
-              value={party} 
-              onChange={e => setParty(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
-            <input 
-              type="text" 
-              placeholder="Ex: SP, RJ"
-              maxLength={2}
-              value={state} 
-              onChange={e => setState(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
-            />
-          </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Ano</label>
+          <select 
+            value={year} 
+            onChange={e => setYear(Number(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
+          >
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
         </div>
-      )}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Mês</label>
+          <select 
+            value={month} 
+            onChange={e => setMonth(Number(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
+          >
+            {months.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Partido</label>
+          <input 
+            type="text" 
+            placeholder="Ex: PL, PT"
+            value={party} 
+            onChange={e => setParty(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+          <input 
+            type="text" 
+            placeholder="Ex: SP, RJ"
+            maxLength={2}
+            value={state} 
+            onChange={e => setState(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
+          />
+        </div>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -256,7 +259,7 @@ export default function Home() {
           <h3 className="text-base font-semibold text-gray-900 mb-6">Evolução Diária de Gastos</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data?.dailyEvolution || []}>
+              <AreaChart data={data?.dailyEvolution || []} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#111827" stopOpacity={0.1}/>
@@ -271,6 +274,7 @@ export default function Home() {
                   fontSize={12} 
                   tickLine={false}
                   axisLine={false}
+                  tickMargin={8}
                 />
                 <YAxis 
                   tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} 
@@ -278,6 +282,7 @@ export default function Home() {
                   fontSize={12} 
                   tickLine={false}
                   axisLine={false}
+                  width={54}
                 />
                 <Tooltip 
                   cursor={{ stroke: '#9ca3af', strokeWidth: 1 }}
@@ -305,7 +310,7 @@ export default function Home() {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {data?.topCategories?.map((_: any, index: number) => (
+                  {data?.topCategories?.map((_: TopItem, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -318,7 +323,7 @@ export default function Home() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
-            {data?.topCategories?.map((entry: any, index: number) => (
+            {data?.topCategories?.map((entry: TopItem, index: number) => (
               <div key={index} className="flex items-start justify-between text-xs gap-3">
                 <div className="flex items-start flex-1 min-w-0">
                   <div className="w-2.5 h-2.5 rounded-full mr-2.5 mt-0.5 flex-shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>

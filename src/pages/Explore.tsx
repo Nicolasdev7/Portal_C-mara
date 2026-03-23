@@ -1,31 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Search, Filter, ChevronLeft, ChevronRight, FileText, BarChart3 } from 'lucide-react';
+import { apiJson } from '../lib/api';
+import { useSyncStatus } from '../hooks/useSyncStatus';
+
+type ExpenseRecord = {
+  id: string;
+  expense_date: string | null;
+  year: number;
+  month: number;
+  amount: number;
+  category: string;
+  supplier: string;
+  org_unit: string;
+};
+
+type ConsultarResponse = {
+  data: ExpenseRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 export default function Explore() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ExpenseRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const { status: syncStatus, label: syncLabel } = useSyncStatus(15000);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   // Filters
-  const [ano, setAno] = useState(searchParams.get('ano') || '2024');
-  const [mes, setMes] = useState(searchParams.get('mes') || '10');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const [ano, setAno] = useState(searchParams.get('ano') || String(currentYear));
+  const [mes, setMes] = useState(searchParams.get('mes') || String(currentMonth));
   const [categoria, setCategoria] = useState(searchParams.get('categoria') || '');
   const [fornecedor, setFornecedor] = useState(searchParams.get('fornecedor') || '');
   const [minValor, setMinValor] = useState(searchParams.get('minValor') || '');
   const [maxValor, setMaxValor] = useState(searchParams.get('maxValor') || '');
-  const [ordenacao, setOrdenacao] = useState(searchParams.get('ordenacao') || 'recent');
+  const [ordenacao, setOrdenacao] = useState(searchParams.get('sort') || searchParams.get('ordenacao') || 'recent');
   const [partido, setPartido] = useState(searchParams.get('partido') || '');
   const [estado, setEstado] = useState(searchParams.get('estado') || '');
   const [showFilters, setShowFilters] = useState(false);
   
   const page = parseInt(searchParams.get('page') || '1');
   const pageSize = 20;
-
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
 
   // Generate Year Options (last 5 years)
   const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
@@ -44,51 +66,64 @@ export default function Explore() {
     { value: 12, label: 'Dezembro' }
   ];
 
-  const syncData = () => {
-    fetch('/api/gastos/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ano: currentYear, mes: currentMonth })
-    })
-    .then(res => res.json())
-    .then(() => alert(`Sincronização de ${currentMonth}/${currentYear} iniciada. Os dados aparecerão em breve.`))
-    .catch(console.error);
-  };
-
-  const fetchResults = () => {
+  const fetchResults = useCallback(async () => {
     setLoading(true);
+    setError('');
     const params = new URLSearchParams();
-    if (ano) params.append('ano', ano);
-    if (mes) params.append('mes', mes);
-    if (categoria) params.append('categoria', categoria);
-    if (fornecedor) params.append('fornecedor', fornecedor);
-    if (minValor) params.append('minValor', minValor);
-    if (maxValor) params.append('maxValor', maxValor);
-    if (ordenacao) params.append('sort', ordenacao);
-    if (partido) params.append('partido', partido);
-    if (estado) params.append('estado', estado);
-    
-    params.append('page', page.toString());
-    params.append('pageSize', pageSize.toString());
 
-    fetch(`/api/gastos/consultar?${params.toString()}`)
-      .then(res => res.json())
-      .then(d => {
-        setData(d.data || []);
-        setTotal(d.total || 0);
-        setLoading(false);
-      })
-      .catch(e => {
-        console.error(e);
-        setLoading(false);
-      });
-  };
+    const anoQ = searchParams.get('ano') || '';
+    const mesQ = searchParams.get('mes') || '';
+    const categoriaQ = searchParams.get('categoria') || '';
+    const fornecedorQ = searchParams.get('fornecedor') || '';
+    const minValorQ = searchParams.get('minValor') || '';
+    const maxValorQ = searchParams.get('maxValor') || '';
+    const sortQ = searchParams.get('sort') || 'recent';
+    const partidoQ = searchParams.get('partido') || '';
+    const estadoQ = searchParams.get('estado') || '';
+    const pageQ = parseInt(searchParams.get('page') || '1');
+
+    if (anoQ) params.append('ano', anoQ);
+    if (mesQ) params.append('mes', mesQ);
+    if (categoriaQ) params.append('categoria', categoriaQ);
+    if (fornecedorQ) params.append('fornecedor', fornecedorQ);
+    if (minValorQ) params.append('minValor', minValorQ);
+    if (maxValorQ) params.append('maxValor', maxValorQ);
+    if (sortQ) params.append('sort', sortQ);
+    if (partidoQ) params.append('partido', partidoQ);
+    if (estadoQ) params.append('estado', estadoQ);
+
+    params.append('page', pageQ.toString());
+    params.append('pageSize', pageSize.toString());
+    try {
+      const d = await apiJson<ConsultarResponse>(`/api/gastos/consultar?${params.toString()}`, { timeoutMs: 20000 });
+      setData(d.data || []);
+      setTotal(d.total || 0);
+    } catch (e: unknown) {
+      const message =
+        e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string'
+          ? String((e as { message?: unknown }).message)
+          : 'Erro ao carregar resultados';
+      setError(message);
+      setData([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [pageSize, searchParams]);
 
   useEffect(() => {
-    fetchResults();
-  }, [searchParams]);
+    fetchResults().catch(() => {});
+  }, [fetchResults]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (syncStatus?.status !== 'completed') return;
+    if (!syncStatus.finished_at) return;
+    if (syncStatus.finished_at === lastSyncAt) return;
+    setLastSyncAt(syncStatus.finished_at);
+    fetchResults().catch(() => {});
+  }, [fetchResults, lastSyncAt, syncStatus?.finished_at, syncStatus?.status]);
+
+  const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (ano) params.append('ano', ano);
@@ -118,13 +153,13 @@ export default function Explore() {
           <p className="text-gray-500 text-sm mt-1">Busque e filtre detalhadamente os registros</p>
         </div>
         <div className="flex space-x-3 items-center">
-          <button 
-            onClick={syncData}
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center shadow-sm"
+          <div
+            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-md flex items-center shadow-sm"
+            title="Status de sincronização"
           >
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-            Sincronizar ({currentMonth}/{currentYear})
-          </button>
+            <span className={`w-2 h-2 rounded-full mr-2 ${syncStatus?.status === 'running' ? 'bg-gray-500 animate-pulse' : 'bg-gray-300'}`}></span>
+            {syncLabel}
+          </div>
           <Link 
             to="/"
             className="flex items-center px-4 py-2 bg-gray-900 border border-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 hover:border-gray-800 transition-all shadow-sm"
@@ -137,6 +172,11 @@ export default function Explore() {
 
       {/* Filter Bar */}
       <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+        {error ? (
+          <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            {error}
+          </div>
+        ) : null}
         <div className="flex justify-between items-center mb-4 md:hidden">
           <h3 className="text-sm font-medium text-gray-700">Filtros</h3>
           <button 

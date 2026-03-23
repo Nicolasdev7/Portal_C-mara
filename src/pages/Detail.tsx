@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Calendar, Building, CreditCard, FileText } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Building, CreditCard, FileText } from 'lucide-react';
+
+type ExpenseDetail = {
+  id: string;
+  expense_date: string | null;
+  year: number;
+  month: number;
+  amount: number;
+  category: string;
+  supplier: string;
+  org_unit: string;
+  description: string | null;
+  source_url: string | null;
+  raw: unknown;
+};
 
 export default function Detail() {
   const { id } = useParams();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ExpenseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

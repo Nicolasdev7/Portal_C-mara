@@ -1,16 +1,16 @@
 import { Link, Outlet } from 'react-router-dom';
 import { Building2, Database } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useSyncStatus } from '../hooks/useSyncStatus';
+
+function formatSyncTimestamp(iso: string) {
+  const d = new Date(iso);
+  const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(d);
+  const date = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+  return `${time} - ${date}`;
+}
 
 export default function Layout() {
-  const [syncStatus, setSyncStatus] = useState<any>(null);
-
-  useEffect(() => {
-    fetch('/api/gastos/status')
-      .then(res => res.json())
-      .then(data => setSyncStatus(data))
-      .catch(console.error);
-  }, []);
+  const { status: syncStatus } = useSyncStatus(15000);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-gray-900 font-sans selection:bg-gray-200 flex flex-col">
@@ -30,8 +30,9 @@ export default function Layout() {
               <span>
                 Base de Dados: {' '}
                 {syncStatus?.status === 'running' && 'Sincronizando...'}
-                {syncStatus?.status === 'completed' && `Atualizado em ${new Date(syncStatus.finished_at).toLocaleString('pt-BR')}`}
-                {!syncStatus?.status && 'Aguardando inicialização'}
+                {syncStatus?.status === 'completed' && syncStatus.finished_at && `Atualizado em ${formatSyncTimestamp(syncStatus.finished_at)}`}
+                {syncStatus?.status === 'failed' && 'Falha na sincronização'}
+                {(syncStatus?.status === 'none' || !syncStatus?.status) && 'Aguardando sincronização'}
               </span>
             </div>
           </div>
