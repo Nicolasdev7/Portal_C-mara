@@ -49,7 +49,7 @@ function getRetryAfterMs(error: unknown) {
 
 async function camaraGet<T>(path: string, params: Record<string, unknown>) {
   const url = `${CAMARA_API_BASE}${path}`;
-  const MAX_ATTEMPTS = 8;
+  const MAX_ATTEMPTS = 12;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     try {
@@ -64,7 +64,7 @@ async function camaraGet<T>(path: string, params: Record<string, unknown>) {
       if (!retryableStatus || attempt === MAX_ATTEMPTS - 1) throw error;
 
       const retryAfterMs = getRetryAfterMs(error);
-      const baseMs = Math.min(30000, 1500 * 2 ** attempt);
+      const baseMs = status === 429 ? Math.min(120000, 10000 * 2 ** attempt) : Math.min(60000, 1500 * 2 ** attempt);
       const waitMs = (retryAfterMs ?? baseMs) + Math.floor(Math.random() * 500);
       await sleep(waitMs);
     }
@@ -142,6 +142,7 @@ async function fetchAllDeputies(ano: number, mes: number) {
 
     pagina += 1;
     if (pagina > 30) break;
+    await sleep(200);
   }
 
   return all;
@@ -151,11 +152,13 @@ async function fetchAllExpensesForDeputy(depId: number, ano: number, mes: number
   const all: CamaraExpense[] = [];
   const itens = 100;
   let pagina = 1;
+  const idLegislatura = legislaturaForYearMonth(ano, mes);
 
   while (true) {
     const res = await camaraGet<{ dados: CamaraExpense[] }>(`/deputados/${depId}/despesas`, {
       ano,
       mes,
+      idLegislatura,
       itens,
       pagina,
       ordem: 'DESC',
@@ -170,6 +173,7 @@ async function fetchAllExpensesForDeputy(depId: number, ano: number, mes: number
 
     pagina += 1;
     if (pagina > 50) break;
+    await sleep(200);
   }
 
   return all;
@@ -254,7 +258,7 @@ async function syncOnePeriod(supabaseAdmin: ReturnType<typeof createClient>, per
         if (!upsertError) upsertedCount += group.length;
       }
 
-      await sleep(120);
+      await sleep(400);
     }
 
     await supabaseAdmin

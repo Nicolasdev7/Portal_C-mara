@@ -201,8 +201,8 @@ export default function Home() {
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Gasto</h3>
-            <div className="p-2 bg-gray-100 rounded">
-              <TrendingUp className="w-4 h-4 text-gray-700" />
+            <div className="h-11 w-11 flex items-center justify-center bg-gray-100 rounded-md">
+              <TrendingUp className="w-6 h-6 text-gray-700" />
             </div>
           </div>
           <div className="text-2xl font-bold text-gray-900">
@@ -213,8 +213,8 @@ export default function Home() {
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Registros</h3>
-            <div className="p-2 bg-gray-100 rounded">
-              <Calendar className="w-4 h-4 text-gray-700" />
+            <div className="h-11 w-11 flex items-center justify-center bg-gray-100 rounded-md">
+              <Calendar className="w-6 h-6 text-gray-700" />
             </div>
           </div>
           <div className="text-2xl font-bold text-gray-900">
@@ -225,8 +225,8 @@ export default function Home() {
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Maior Categoria</h3>
-            <div className="p-2 bg-gray-100 rounded">
-              <Wallet className="w-4 h-4 text-gray-700" />
+            <div className="h-11 w-11 flex items-center justify-center bg-gray-100 rounded-md">
+              <Wallet className="w-6 h-6 text-gray-700" />
             </div>
           </div>
           <div className="text-sm font-bold text-gray-900 truncate" title={data?.topCategories?.[0]?.name}>
@@ -240,8 +240,8 @@ export default function Home() {
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Top Fornecedor</h3>
-            <div className="p-2 bg-gray-100 rounded">
-              <Building className="w-4 h-4 text-gray-700" />
+            <div className="h-11 w-11 flex items-center justify-center bg-gray-100 rounded-md">
+              <Building className="w-6 h-6 text-gray-700" />
             </div>
           </div>
           <div className="text-sm font-bold text-gray-900 truncate" title={data?.topSuppliers?.[0]?.name}>
@@ -255,9 +255,9 @@ export default function Home() {
 
       {/* Row 1: Evolution & Categories */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-900 mb-6">Evolução Diária de Gastos</h3>
-          <div className="h-72">
+        <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col min-h-[24rem]">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">Evolução Diária de Gastos</h3>
+          <div className="flex-1 min-h-[18rem]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data?.dailyEvolution || []} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                 <defs>
